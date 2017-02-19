@@ -34,7 +34,7 @@ public class Bukkit2Drive extends JavaPlugin {
 
     private static final String APPLICATION_NAME = "Bukkit2Drive";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
-    private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm");
+    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     private static NetHttpTransport httpTransport;
     private static FileDataStoreFactory dataStoreFactory;
@@ -109,7 +109,7 @@ public class Bukkit2Drive extends JavaPlugin {
 
     private File createBackupFolder(File rootFolder) throws IOException {
         File folderMetadata = new File();
-        folderMetadata.setName(dateFormat.format(new Date()));
+        folderMetadata.setName(DATE_FORMAT.format(new Date()));
         folderMetadata.setMimeType("application/vnd.google-apps.folder");
         folderMetadata.setParents(Collections.singletonList(rootFolder.getId()));
 
