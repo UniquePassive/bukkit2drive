@@ -14,11 +14,9 @@ import com.google.api.client.util.store.FileDataStoreFactory;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
 import com.google.api.services.drive.model.File;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
+import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
@@ -150,6 +148,17 @@ public class Bukkit2Drive extends JavaPlugin {
 
         return new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver())
                 .authorize("user");
+    }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (command.getName().equalsIgnoreCase("backup")
+                && sender instanceof ConsoleCommandSender) {
+            runBackup();
+            return true;
+        }
+
+        return false;
     }
 
     @Override

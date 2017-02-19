@@ -1,3 +1,7 @@
 name: Bukkit2Drive
 main: com.uniquepassive.bukkit2drive.Bukkit2Drive
 version: 1.0
+commands:
+   backup:
+      description: Performs a backup on the worlds
+      usage: /<command>
