@@ -16,6 +16,9 @@ import com.google.api.services.drive.DriveScopes;
 import com.google.api.services.drive.model.File;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
@@ -24,10 +27,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.text.SimpleDateFormat;
-import java.util.Collections;
-import java.util.Date;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class Bukkit2Drive extends JavaPlugin {
 
@@ -37,7 +38,7 @@ public class Bukkit2Drive extends JavaPlugin {
 
     private static NetHttpTransport httpTransport;
     private static FileDataStoreFactory dataStoreFactory;
-    private Drive driveService;
+    private static Drive driveService;
 
     private Timer timer = new Timer();
 
@@ -47,48 +48,63 @@ public class Bukkit2Drive extends JavaPlugin {
             if (httpTransport == null) {
                 httpTransport = GoogleNetHttpTransport.newTrustedTransport();
                 dataStoreFactory = new FileDataStoreFactory(new java.io.File("driveService"));
+
+                Credential credential = authorize();
+
+                driveService = new Drive.Builder(httpTransport, JSON_FACTORY, credential)
+                        .setApplicationName(APPLICATION_NAME)
+                        .build();
             }
 
-            Credential credential = authorize();
-
-            driveService = new Drive.Builder(httpTransport, JSON_FACTORY, credential).setApplicationName(
-                    APPLICATION_NAME).build();
-
-            TimerTask task = new TimerTask() {
+            timer.schedule(new TimerTask() {
                 @Override
                 public void run() {
-                    Bukkit.broadcastMessage(ChatColor.DARK_RED + "Launching backup of the worlds!");
-
-                    try {
-                        File rootFolder = getRootFolder();
-                        File backupFolder = createBackupFolder(rootFolder);
-
-                        zipAndUpload(backupFolder, "world.zip", Paths.get("world"));
-                        zipAndUpload(backupFolder, "world_nether.zip", Paths.get("world_nether"));
-                        zipAndUpload(backupFolder, "world_the_end.zip", Paths.get("world_the_end"));
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-
+                    runBackup();
                 }
-            };
-
-            timer.schedule(task, 0, 3 * 60 * 60 * 1000);
+            }, 0, 3 * 60 * 60 * 1000);
         } catch (GeneralSecurityException | IOException e) {
             e.printStackTrace();
         }
     }
 
-    private File getRootFolder() throws IOException {
-        File folderMetadata = new File();
-        folderMetadata.setName("Bukkit2Drive");
-        folderMetadata.setMimeType("application/vnd.google-apps.folder");
+    private synchronized void runBackup() {
 
-        return driveService
+        try {
+            File rootFolder = getRootFolder();
+            File backupFolder = createBackupFolder(rootFolder);
+
+            zipAndUpload(backupFolder, "world.zip", Paths.get("world"));
+            zipAndUpload(backupFolder, "world_nether.zip", Paths.get("world_nether"));
+            zipAndUpload(backupFolder, "world_the_end.zip", Paths.get("world_the_end"));
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private File getRootFolder() throws IOException {
+        List<File> fileList = driveService
                 .files()
-                .create(folderMetadata)
-                .setFields("id")
-                .execute();
+                .list()
+                .execute()
+                .getFiles()
+                .stream()
+                .filter(f -> f.getName().equals(APPLICATION_NAME))
+                .collect(Collectors.toList());
+
+        if (fileList.isEmpty()) {
+            File folderMetadata = new File();
+            folderMetadata.setName(APPLICATION_NAME);
+            folderMetadata.setMimeType("application/vnd.google-apps.folder");
+
+            return driveService
+                    .files()
+                    .create(folderMetadata)
+                    .setFields("id")
+                    .execute();
+        }
+
+        return fileList.get(0);
     }
 
     private File createBackupFolder(File rootFolder) throws IOException {
@@ -125,20 +141,15 @@ public class Bukkit2Drive extends JavaPlugin {
         GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(JSON_FACTORY,
                 new InputStreamReader(Bukkit2Drive.class.getResourceAsStream("/client_secrets.json")));
 
-        if (clientSecrets.getDetails().getClientId().startsWith("Enter")
-                || clientSecrets.getDetails().getClientSecret().startsWith("Enter ")) {
-            System.out.println(
-                    "Enter Client ID and Secret from https://code.google.com/apis/console/?api=driveService "
-                            + "into src/main/resources/client_secrets.json");
-            System.exit(1);
-        }
-
-        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-                httpTransport, JSON_FACTORY, clientSecrets,
-                Collections.singleton(DriveScopes.DRIVE_FILE)).setDataStoreFactory(dataStoreFactory)
+        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(httpTransport,
+                JSON_FACTORY,
+                clientSecrets,
+                Collections.singleton(DriveScopes.DRIVE_FILE))
+                .setDataStoreFactory(dataStoreFactory)
                 .build();
 
-        return new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver()).authorize("user");
+        return new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver())
+                .authorize("user");
     }
 
     @Override
