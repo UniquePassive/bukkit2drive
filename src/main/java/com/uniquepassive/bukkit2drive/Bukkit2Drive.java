@@ -1,6 +1,7 @@
 package com.uniquepassive.bukkit2drive;
 
 import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.auth.oauth2.DataStoreCredentialRefreshListener;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
@@ -66,7 +67,6 @@ public class Bukkit2Drive extends JavaPlugin {
     }
 
     private synchronized void runBackup() {
-
         try {
             File rootFolder = getRootFolder();
             File backupFolder = createBackupFolder(rootFolder);
@@ -144,6 +144,9 @@ public class Bukkit2Drive extends JavaPlugin {
                 clientSecrets,
                 Collections.singleton(DriveScopes.DRIVE_FILE))
                 .setDataStoreFactory(dataStoreFactory)
+                .addRefreshListener(new DataStoreCredentialRefreshListener(clientSecrets.getInstalled().getClientId(),
+                        dataStoreFactory))
+                .setAccessType("offline")
                 .build();
 
         return new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver())
